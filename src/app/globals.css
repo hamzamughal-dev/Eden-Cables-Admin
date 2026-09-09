@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  /* Official Eden Cables Brand Tokens - Light Clean Theme */
+  --charcoal: #0f172a;
+  --charcoal-deep: #1e293b;
+  --red: #e01b22;
+  --red-dark: #b3121a;
+  --ink: #0f172a;
+  --body: #334155;
+  --bg: #ffffff;
+  --bg-soft: #f8fafc;
+  --line: #e2e8f0;
+  --radius: 6px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lift: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --ease: cubic-bezier(0.16, 0.8, 0.3, 1);
+}
+
+@theme inline {
+  --color-charcoal: var(--charcoal);
+  --color-charcoal-deep: var(--charcoal-deep);
+  --color-brand-red: var(--red);
+  --color-brand-red-dark: var(--red-dark);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-archivo);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
+body {
+  color: var(--body);
+  background: var(--bg-soft);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-archivo), sans-serif;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.mono {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  letter-spacing: 0.05em;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e01b22;
+}
+
+/* Red Tag / Gauge Badge */
+.gauge-tag {
+  display: inline-block;
+  font-size: 11px;
+  color: #b3121a;
+  background: rgba(224, 27, 34, 0.08);
+  border: 1px solid rgba(224, 27, 34, 0.25);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* Global Network Activity Progress Bar */
+@keyframes networkProgress {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(50%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-network-progress {
+  width: 50%;
+  animation: networkProgress 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

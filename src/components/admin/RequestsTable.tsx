@@ -7,6 +7,7 @@ import { RequestDetailsModal } from "@/components/admin/RequestDetailsModal";
 import { DeleteRequestModal } from "@/components/admin/DeleteRequestModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { parseQuoteDetails } from "@/lib/utils/quote";
 import {
   Search,
   Phone,
@@ -110,6 +111,14 @@ export function RequestsTable({
       `Inquiry from "${deleted?.full_name || "Customer"}" was deleted.`
     );
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat("en-PK", {
+      style: "currency",
+      currency: "PKR",
+      maximumFractionDigits: 0,
+    }).format(Number(val));
   };
 
   const formatDate = (dateStr: string) => {
@@ -255,41 +264,76 @@ export function RequestsTable({
                         </a>
                       </td>
 
-                      {/* Product */}
-                      <td className="py-4 px-4 max-w-xs">
-                        <div className="font-medium text-slate-800 truncate">
-                          {req.product?.name || (
-                            <span className="text-slate-400 font-mono text-xs">
-                              ID: {req.product_id.slice(0, 8)}...
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          {req.product?.category?.name && (
-                            <Badge variant="cyan" className="text-[10px] py-0">
-                              {req.product.category.name}
-                            </Badge>
-                          )}
-                          {req.product && (
-                            <span className="text-xs font-mono text-slate-900 font-semibold">
-                              ${Number(req.product.price).toFixed(2)}
-                            </span>
-                          )}
-                        </div>
+                      {/* Product / Quote Items */}
+                      <td className="py-4 px-4 max-w-sm">
+                        {(() => {
+                          const quote = parseQuoteDetails(req.requirements, req.product);
+                          if (quote.items.length > 1) {
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-[10px] bg-red-50 text-[#e01b22] px-2 py-0.5 rounded border border-red-200">
+                                    {quote.items.length} Specifications
+                                  </span>
+                                  <span className="text-xs font-semibold text-slate-900 truncate max-w-[200px]" title={quote.items.map((i) => i.product_name).join(", ")}>
+                                    {quote.items[0].product_name} &amp; {quote.items.length - 1} more
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="font-mono font-bold text-[#e01b22]">
+                                    {formatCurrency(quote.totalEstimatedCost)}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-mono">
+                                    ({quote.items.map((it) => `${it.quantity}${it.unit === "coil" ? "c" : "m"}`).join(", ")})
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          const singleItem = quote.items[0];
+                          return (
+                            <div className="space-y-0.5">
+                              <div className="font-semibold text-slate-900 truncate max-w-xs flex items-center gap-1.5">
+                                {singleItem?.dimension && (
+                                  <span className="font-mono text-[10px] font-extrabold text-[#e01b22] bg-red-50 px-1.5 py-0.2 rounded border border-red-200 shrink-0">
+                                    {singleItem.dimension}
+                                  </span>
+                                )}
+                                <span className="truncate">{singleItem?.product_name || req.product?.name || "Conductor"}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="font-mono font-bold text-slate-900">
+                                  {formatCurrency(quote.totalEstimatedCost)}
+                                </span>
+                                {singleItem && (
+                                  <span className="text-[11px] text-slate-500 font-mono">
+                                    ({singleItem.quantity} {singleItem.unit === "coil" ? "Coil (90m)" : "Meters"})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td className="py-4 px-4 max-w-xs">
-                        <p
-                          className="text-xs text-slate-500 line-clamp-2 cursor-pointer hover:text-slate-900 transition-colors"
-                          onClick={() => setSelectedRequest(req)}
-                          title="Click to view full notes"
-                        >
-                          {req.requirements || (
-                            <span className="italic text-slate-400">
-                              No notes provided
-                            </span>
-                          )}
-                        </p>
+                        {(() => {
+                          const quote = parseQuoteDetails(req.requirements, req.product);
+                          return (
+                            <p
+                              className="text-xs text-slate-500 line-clamp-2 cursor-pointer hover:text-slate-900 transition-colors"
+                              onClick={() => setSelectedRequest(req)}
+                              title="Click to view full notes"
+                            >
+                              {quote.requirementsNotes || (
+                                <span className="italic text-slate-400">
+                                  Standard commercial delivery requirements
+                                </span>
+                              )}
+                            </p>
+                          );
+                        })()}
                       </td>
 
                       <td className="py-4 px-4 text-center whitespace-nowrap">

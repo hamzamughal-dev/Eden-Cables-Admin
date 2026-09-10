@@ -25,6 +25,7 @@ export function Logo({ className, badge = "Admin", href = "/dashboard" }: LogoPr
           width={130}
           height={36}
           className="h-7 sm:h-8 w-auto object-contain"
+          style={{ width: "auto" }}
           priority
         />
       </div>

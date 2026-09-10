@@ -40,6 +40,7 @@ interface RequestDetailsModalProps {
 }
 
 import { useUpdateRequestStatusMutation } from "@/hooks/useRequests";
+import { parseQuoteDetails } from "@/lib/utils/quote";
 
 export function RequestDetailsModal({
   request,
@@ -64,6 +65,8 @@ export function RequestDetailsModal({
 
   if (!isOpen || !request) return null;
 
+  const quoteDetails = parseQuoteDetails(request.requirements, request.product);
+
   const handleStatusChange = (newStatus: ProductRequestStatus) => {
     if (newStatus === request.status || updateStatusMutation.isPending) return;
     setStatusError(null);
@@ -73,10 +76,13 @@ export function RequestDetailsModal({
 
   const updatingStatus = updateStatusMutation.isPending;
 
-  const product = request.product;
-  const numPrice = product ? Number(product.price) : 0;
-  const numDiscount = product ? Number(product.discount) : 0;
-  const effectivePrice = Math.max(0, numPrice * (1 - numDiscount / 100));
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat("en-PK", {
+      style: "currency",
+      currency: "PKR",
+      maximumFractionDigits: 0,
+    }).format(Number(val));
+  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -121,7 +127,7 @@ export function RequestDetailsModal({
             <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
               <a
                 href={`tel:${request.phone}`}
-                className="inline-flex items-center gap-1.5 text-[#e01b22] hover:underline font-mono"
+                className="inline-flex items-center gap-1.5 text-[#e01b22] hover:underline font-mono font-semibold"
               >
                 <Phone className="h-3.5 w-3.5" />
                 <span>{request.phone}</span>
@@ -191,66 +197,94 @@ export function RequestDetailsModal({
             </div>
           </div>
 
+          {/* Requested Items & Specifications Table */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5 text-[#e01b22]" />
+                Requested Items &amp; Quantities ({quoteDetails.items.length})
+              </h3>
+              <span className="font-mono text-xs text-slate-500">
+                Total Estimate: <strong className="text-slate-900 font-bold">{formatCurrency(quoteDetails.totalEstimatedCost)}</strong>
+              </span>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-3">#</th>
+                    <th className="py-2.5 px-3">Cable Specification</th>
+                    <th className="py-2.5 px-3 text-center">Unit</th>
+                    <th className="py-2.5 px-3 text-right">Quantity</th>
+                    <th className="py-2.5 px-3 text-right">Unit Rate</th>
+                    <th className="py-2.5 px-3 text-right">Estimated Line Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {quoteDetails.items.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-2.5 px-3 text-slate-400 font-mono">{idx + 1}</td>
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                          {item.dimension && (
+                            <span className="font-mono text-[10px] font-extrabold text-[#e01b22] bg-red-50 px-1.5 py-0.2 rounded border border-red-200 shrink-0">
+                              {item.dimension}
+                            </span>
+                          )}
+                          <span>{item.product_name}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span
+                          className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            item.unit === "coil"
+                              ? "bg-amber-50 text-amber-900 border-amber-300"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                          }`}
+                        >
+                          {item.unit === "coil" ? "Coil (90m)" : "Meter"}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
+                        {item.quantity}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                        {formatCurrency(item.unit_price)}/m
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#23262b]">
+                        {formatCurrency(item.line_total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-50/80 border-t border-slate-200">
+                  <tr>
+                    <td colSpan={5} className="py-2.5 px-3 text-right font-semibold text-slate-700">
+                      Total Estimated Value:
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-extrabold text-sm text-[#e01b22]">
+                      {formatCurrency(quoteDetails.totalEstimatedCost)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
           {/* Customer Requirements Section */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5 text-slate-400" />
-              Requirements & Order Notes
+              Run Length, Voltage &amp; Delivery Requirements
             </h3>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
-              {request.requirements || (
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+              {quoteDetails.requirementsNotes || (
                 <span className="italic text-slate-400">
-                  No additional requirements provided by customer.
+                  No additional voltage or delivery requirements specified by customer.
                 </span>
               )}
             </div>
-          </div>
-
-          {/* Requested Product Details Card */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Package className="h-3.5 w-3.5 text-slate-400" />
-              Associated Product from Catalog
-            </h3>
-            {product ? (
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900 text-base">
-                      {product.name}
-                    </span>
-                    {product.category?.name && (
-                      <Badge variant="cyan" className="text-[10px]">
-                        {product.category.name}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Product ID: <code className="text-[11px] font-mono">{request.product_id}</code>
-                  </div>
-                </div>
-
-                <div className="text-right sm:shrink-0">
-                  <div className="text-lg font-bold text-slate-900">
-                    ${effectivePrice.toFixed(2)}
-                  </div>
-                  {numDiscount > 0 && (
-                    <div className="text-xs text-slate-400 line-through">
-                      ${numPrice.toFixed(2)} ({numDiscount}% off)
-                    </div>
-                  )}
-                  {product.quantity !== undefined && (
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Available Stock: <strong className="text-slate-900">{product.quantity}</strong> units
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                Product ID: {request.product_id} (Product details could not be loaded)
-              </div>
-            )}
           </div>
         </div>
 

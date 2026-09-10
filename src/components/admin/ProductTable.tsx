@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   Zap,
   CheckCircle2,
+  X,
 } from "lucide-react";
 
 interface ProductWithCategory extends ProductRecord {
@@ -40,30 +41,84 @@ export function ProductTable({
   const [deletingProduct, setDeletingProduct] = useState<ProductWithCategory | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Available categories based on selected metal
-  const availableCategories = categories.filter((c) => {
-    if (selectedWireType === "all") return true;
-    return c.wire_type_id === selectedWireType;
-  });
+  // Unique core category names (e.g. "Single Core", "Double Core")
+  // Deduplicated so categories don't repeat when multiple metals have the same core name
+  const availableCategoryNames = React.useMemo(() => {
+    const catsForMetal = categories.filter((c) => {
+      if (selectedWireType === "all") return true;
+      return c.wire_type_id === selectedWireType;
+    });
 
-  const filteredProducts = products.filter((p) => {
-    const query = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      query === "" ||
-      p.name.toLowerCase().includes(query) ||
-      (p.dimension && p.dimension.toLowerCase().includes(query)) ||
-      (p.description && p.description.toLowerCase().includes(query));
+    const seen = new Set<string>();
+    const names: string[] = [];
 
-    // Match metal type
-    let matchesMetal = true;
-    if (selectedWireType !== "all") {
-      const cat = categories.find((c) => c.id === p.category_id);
-      matchesMetal = cat?.wire_type_id === selectedWireType;
+    for (const cat of catsForMetal) {
+      const trimmed = cat.name.trim();
+      const lower = trimmed.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        names.push(trimmed);
+      }
     }
 
-    // Match category
+    return names;
+  }, [categories, selectedWireType]);
+
+  const handleSelectWireType = (wireTypeId: string) => {
+    setSelectedWireType(wireTypeId);
+    // If a specific category was chosen, check if it exists in the newly chosen metal
+    if (selectedCategory !== "all" && wireTypeId !== "all") {
+      const existsInSelectedMetal = categories.some(
+        (c) =>
+          c.wire_type_id === wireTypeId &&
+          c.name.trim().toLowerCase() === selectedCategory.trim().toLowerCase()
+      );
+      if (!existsInSelectedMetal) {
+        setSelectedCategory("all");
+      }
+    }
+  };
+
+  const filteredProducts = products.filter((p) => {
+    const cat = categories.find((c) => c.id === p.category_id) || p.category;
+    const catName = cat?.name?.trim() || "";
+    const wtId = cat?.wire_type_id;
+    const wt = wtId
+      ? wireTypes.find((w) => w.id === wtId)
+      : (cat as any)?.wire_type;
+    const metalName =
+      wt?.name ||
+      (catName.toLowerCase().includes("copper")
+        ? "Copper"
+        : catName.toLowerCase().includes("aluminum")
+        ? "Aluminum"
+        : "");
+
+    // 1. Search Query: Matches name, dimension, description, category name, and conductor metal
+    const query = searchQuery.toLowerCase().trim();
+    let matchesSearch = true;
+    if (query !== "") {
+      const searchTerms = query.split(/\s+/).filter(Boolean);
+      const searchBlob = `${p.name} ${p.dimension || ""} ${p.description || ""} ${catName} ${metalName}`.toLowerCase();
+      const normalizedBlob = searchBlob.replace(/-/g, " ");
+
+      matchesSearch = searchTerms.every(
+        (term) =>
+          searchBlob.includes(term) ||
+          normalizedBlob.includes(term.replace(/-/g, " "))
+      );
+    }
+
+    // 2. Metal Tab Selection
+    let matchesMetal = true;
+    if (selectedWireType !== "all") {
+      matchesMetal = wtId === selectedWireType;
+    }
+
+    // 3. Category Filter Selection (matches by category name case-insensitively)
     const matchesCategory =
-      selectedCategory === "all" || p.category_id === selectedCategory;
+      selectedCategory === "all" ||
+      catName.toLowerCase() === selectedCategory.trim().toLowerCase();
 
     return matchesSearch && matchesMetal && matchesCategory;
   });
@@ -118,10 +173,7 @@ export function ProductTable({
           </span>
           <button
             type="button"
-            onClick={() => {
-              setSelectedWireType("all");
-              setSelectedCategory("all");
-            }}
+            onClick={() => handleSelectWireType("all")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
               selectedWireType === "all"
                 ? "bg-[#e01b22] text-white shadow-xs font-bold"
@@ -134,7 +186,7 @@ export function ProductTable({
           {wireTypes.map((wt) => {
             const isSelected = selectedWireType === wt.id;
             const count = products.filter((p) => {
-              const cat = categories.find((c) => c.id === p.category_id);
+              const cat = categories.find((c) => c.id === p.category_id) || p.category;
               return cat?.wire_type_id === wt.id;
             }).length;
 
@@ -142,10 +194,7 @@ export function ProductTable({
               <button
                 key={wt.id}
                 type="button"
-                onClick={() => {
-                  setSelectedWireType(wt.id);
-                  setSelectedCategory("all");
-                }}
+                onClick={() => handleSelectWireType(wt.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
                   isSelected
                     ? "bg-[#e01b22] text-white shadow-xs font-bold"
@@ -172,14 +221,24 @@ export function ProductTable({
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by dimension (e.g. 3/29, 7/29) or cable title..."
+                placeholder="Search by dimension (e.g. 3/29, 7/29), category, or title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#e01b22] focus:ring-1 focus:ring-[#e01b22]"
+                className="w-full pl-10 pr-9 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#e01b22] focus:ring-1 focus:ring-[#e01b22]"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            {availableCategories.length > 0 && (
+            {availableCategoryNames.length > 0 && (
               <div className="w-full sm:w-56">
                 <select
                   value={selectedCategory}
@@ -187,9 +246,9 @@ export function ProductTable({
                   className="w-full py-2 px-3 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-[#e01b22] cursor-pointer"
                 >
                   <option value="all">All Core Categories</option>
-                  {availableCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
+                  {availableCategoryNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
                     </option>
                   ))}
                 </select>
@@ -252,7 +311,22 @@ export function ProductTable({
                         ? "Try adjusting your search query, metal tab, or category filter."
                         : "Start by adding your first wire dimension."}
                     </p>
-                    {!searchQuery && selectedCategory === "all" && (
+                    {searchQuery || selectedCategory !== "all" || selectedWireType !== "all" ? (
+                      <div className="mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setSelectedCategory("all");
+                            setSelectedWireType("all");
+                          }}
+                          className="text-xs cursor-pointer"
+                        >
+                          Clear all filters
+                        </Button>
+                      </div>
+                    ) : (
                       <div className="mt-4">
                         <Link href="/products/new">
                           <Button variant="emerald" size="sm">

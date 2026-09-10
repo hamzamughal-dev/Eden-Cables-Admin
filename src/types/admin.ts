@@ -1,21 +1,37 @@
 export type ProductRequestStatus = "pending" | "contacted" | "completed" | "cancelled";
 
-export interface CategoryRecord {
+export interface WireTypeRecord {
   id: string;
   name: string;
   description: string | null;
   created_at: string;
   updated_at: string;
+  category_count?: number;
+  product_count?: number;
+}
+
+export interface CategoryRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  wire_type_id?: string | null;
+  wire_type?: WireTypeRecord | null;
+  created_at: string;
+  updated_at: string;
+  product_count?: number;
 }
 
 export interface ProductRecord {
   id: string;
   name: string;
+  dimension?: string | null;
   description: string | null;
-  quantity: number;
+  image_url?: string | null;
+  quantity?: number;
   price: number;
-  discount: number; 
+  discount?: number; 
   category_id: string;
+  category?: CategoryRecord | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,8 +46,10 @@ export interface ProductRequestRecord {
   status: ProductRequestStatus;
   product?: {
     name: string;
+    dimension?: string | null;
     price: number;
-    discount: number;
+    discount?: number;
+    image_url?: string | null;
   };
 }
 

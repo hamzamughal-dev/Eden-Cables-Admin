@@ -33,13 +33,15 @@ export async function GET(
       return sendBadRequest("Invalid product identifier format. Must be a valid UUID.");
     }
 
-    const { data: product, error } = await supabase!
+    const initialQuery = await supabase!
       .from("products")
       .select(
         `
         id,
         name,
+        dimension,
         description,
+        image_url,
         quantity,
         price,
         discount,
@@ -48,22 +50,73 @@ export async function GET(
         updated_at,
         category:categories (
           id,
-          name
+          name,
+          wire_type_id,
+          wire_type:wire_types (
+            id,
+            name
+          )
         )
       `
       )
       .eq("id", id)
       .maybeSingle();
 
+    let product: any = initialQuery.data;
+    const error = initialQuery.error;
+
     if (error) {
-      return sendServerError(error, "Failed to retrieve product.");
+      const fallback = await supabase!
+        .from("products")
+        .select(
+          `
+          id,
+          name,
+          description,
+          quantity,
+          price,
+          discount,
+          category_id,
+          created_at,
+          updated_at,
+          category:categories (
+            id,
+            name
+          )
+        `
+        )
+        .eq("id", id)
+        .maybeSingle();
+
+      if (fallback.error) {
+        return sendServerError(fallback.error, "Failed to retrieve product.");
+      }
+      product = fallback.data ? { ...fallback.data, dimension: null, image_url: null } : null;
     }
 
     if (!product) {
       return sendNotFound(`Product with ID '${id}' was not found.`);
     }
 
-    return sendSuccess({ product }, 200);
+    const cat = Array.isArray(product.category) ? product.category[0] : product.category;
+    const wt = cat?.wire_type ? (Array.isArray(cat.wire_type) ? cat.wire_type[0] : cat.wire_type) : null;
+
+    const formatted = {
+      id: product.id,
+      name: product.name,
+      dimension: product.dimension || null,
+      description: product.description || null,
+      image_url: product.image_url || null,
+      quantity: product.quantity ?? 1000,
+      price: Number(product.price),
+      discount: Number(product.discount || 0),
+      category_id: product.category_id,
+      category: cat ? { ...cat, wire_type: wt } : null,
+      created_at: product.created_at,
+      updated_at: product.updated_at,
+    };
+
+    return sendSuccess({ product: formatted }, 200);
   } catch (err) {
     return sendServerError(err, "Unexpected error retrieving product.");
   }
@@ -126,22 +179,26 @@ export async function PUT(
       return sendNotFound("The specified category does not exist.");
     }
 
-    const { data: updatedProduct, error: updateError } = await supabase!
+    const updatePayload: Record<string, any> = {
+      name: updateData.name.trim(),
+      dimension: updateData.dimension?.trim() || null,
+      description: updateData.description?.trim() || null,
+      image_url: updateData.image_url?.trim() || null,
+      price: updateData.price,
+      category_id: updateData.category_id,
+    };
+
+    const updateRes = await supabase!
       .from("products")
-      .update({
-        name: updateData.name,
-        description: updateData.description?.trim() || null,
-        quantity: updateData.quantity,
-        price: updateData.price,
-        discount: updateData.discount,
-        category_id: updateData.category_id,
-      })
+      .update(updatePayload)
       .eq("id", id)
       .select(
         `
         id,
         name,
+        dimension,
         description,
+        image_url,
         quantity,
         price,
         discount,
@@ -155,6 +212,40 @@ export async function PUT(
       `
       )
       .single();
+
+    let updatedProduct: any = updateRes.data;
+    let updateError = updateRes.error;
+
+    if (updateError && (updateError.code === "42703" || updateError.message?.includes("does not exist"))) {
+      delete updatePayload.dimension;
+      delete updatePayload.image_url;
+
+      const retry = await supabase!
+        .from("products")
+        .update(updatePayload)
+        .eq("id", id)
+        .select(
+          `
+          id,
+          name,
+          description,
+          quantity,
+          price,
+          discount,
+          category_id,
+          created_at,
+          updated_at,
+          category:categories (
+            id,
+            name
+          )
+        `
+        )
+        .single();
+
+      updatedProduct = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       return sendServerError(updateError, "Failed to update product.");
@@ -209,7 +300,7 @@ export async function DELETE(
       return sendConflict(
         `Cannot delete product "${product.name}" because it is referenced by ${requestCount} customer inquiry record${
           requestCount === 1 ? "" : "s"
-        }. Deletion is prevented to preserve historical request and audit integrity.`,
+        }. Deletion is prevented to preserve historical request integrity.`,
         {
           productId: id,
           productName: product.name,
@@ -218,7 +309,6 @@ export async function DELETE(
       );
     }
 
-    // 3. Zero references exist: safe to delete
     const { error: deleteError } = await supabase!
       .from("products")
       .delete()

@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Layers, Clock, ShoppingCart, ArrowRight } from "lucide-react";
+import { Package, Layers, Clock, ShoppingCart, ArrowRight, Zap } from "lucide-react";
 
 interface DashboardStatsGridProps {
   totalProducts: number;
@@ -19,29 +19,29 @@ export function DashboardStatsGrid({
 }: DashboardStatsGridProps) {
   const stats = [
     {
-      title: "Total Products",
+      title: "Wire Specifications",
       value: totalProducts,
-      subtitle: "Active catalog items",
+      subtitle: "Dimensions (3/29, 7/29, etc.)",
       href: "/products",
       icon: Package,
-      iconBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-      cta: "Manage Products",
+      iconBg: "bg-red-500/10 text-[#e01b22] border-red-500/20",
+      cta: "Manage Dimensions",
     },
     {
-      title: "Total Categories",
+      title: "Core Categories",
       value: totalCategories,
-      subtitle: "Catalog classifications",
+      subtitle: "Single, Double, 3-Core, 4-Core",
       href: "/categories",
       icon: Layers,
-      iconBg: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+      iconBg: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
       cta: "Manage Categories",
     },
     {
-      title: "Pending Requests",
+      title: "Pending Inquiries",
       value: pendingRequests,
       subtitle:
         pendingRequests > 0
-          ? "Inquiries awaiting review"
+          ? "Quote requests awaiting response"
           : "All quote inquiries addressed",
       href: "/requests",
       icon: Clock,
@@ -62,13 +62,13 @@ export function DashboardStatsGrid({
       cta: "Review Pending",
     },
     {
-      title: "Total Requests",
+      title: "Total Inquiries",
       value: totalRequests,
-      subtitle: "All-time customer inquiries",
+      subtitle: "Commercial & project inquiries",
       href: "/requests",
       icon: ShoppingCart,
       iconBg: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-      cta: "View All Requests",
+      cta: "View All Inquiries",
     },
   ];
 

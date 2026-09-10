@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { CategoryRecord } from "@/types/admin";
+import { CategoryRecord, WireTypeRecord } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CategoryFormModal } from "@/components/admin/CategoryFormModal";
@@ -13,6 +13,7 @@ import {
   Trash2,
   Layers,
   Package,
+  Zap,
 } from "lucide-react";
 
 interface CategoryWithProductCount extends CategoryRecord {
@@ -21,12 +22,17 @@ interface CategoryWithProductCount extends CategoryRecord {
 
 interface CategoryTableProps {
   initialCategories: CategoryWithProductCount[];
+  wireTypes?: WireTypeRecord[];
 }
 
-export function CategoryTable({ initialCategories }: CategoryTableProps) {
+export function CategoryTable({
+  initialCategories,
+  wireTypes = [],
+}: CategoryTableProps) {
   const [categories, setCategories] =
     useState<CategoryWithProductCount[]>(initialCategories);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedWireType, setSelectedWireType] = useState<string>("all");
   const [editingCategory, setEditingCategory] =
     useState<CategoryWithProductCount | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -35,12 +41,15 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const filteredCategories = categories.filter((cat) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      cat.name.toLowerCase().includes(query) ||
-      (cat.description && cat.description.toLowerCase().includes(query))
-    );
+    const matchesSearch =
+      !searchQuery.trim() ||
+      cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (cat.description && cat.description.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesMetal =
+      selectedWireType === "all" || cat.wire_type_id === selectedWireType;
+
+    return matchesSearch && matchesMetal;
   });
 
   const handleSavedCategory = (saved: CategoryWithProductCount) => {
@@ -96,45 +105,98 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search categories by name or description..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#e01b22] focus:ring-1 focus:ring-[#e01b22]"
-          />
+      {/* Filter and Switcher Bar */}
+      <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-4 shadow-xs">
+        {/* Metal Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 overflow-x-auto">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2 shrink-0 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 text-[#e01b22]" /> Conductor Metal:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedWireType("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
+              selectedWireType === "all"
+                ? "bg-[#e01b22] text-white shadow-xs font-bold"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            }`}
+          >
+            All Metals ({categories.length})
+          </button>
+
+          {wireTypes.map((wt) => {
+            const isSelected = selectedWireType === wt.id;
+            const count = categories.filter((c) => c.wire_type_id === wt.id).length;
+
+            return (
+              <button
+                key={wt.id}
+                type="button"
+                onClick={() => setSelectedWireType(wt.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-[#e01b22] text-white shadow-xs font-bold"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                }`}
+              >
+                <span>{wt.name}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isSelected ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <Button
-          variant="emerald"
-          size="sm"
-          onClick={() => {
-            setEditingCategory(null);
-            setIsCreateOpen(true);
-          }}
-          className="cursor-pointer gap-2 shrink-0 font-semibold shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Category</span>
-        </Button>
+        {/* Search & Add Category */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search core categories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#e01b22] focus:ring-1 focus:ring-[#e01b22]"
+            />
+          </div>
+
+          <Button
+            variant="emerald"
+            size="sm"
+            onClick={() => {
+              setEditingCategory(null);
+              setIsCreateOpen(true);
+            }}
+            className="cursor-pointer gap-2 shrink-0 font-semibold shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Core Category</span>
+          </Button>
+        </div>
       </div>
 
+      {/* Table */}
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th scope="col" className="py-3.5 px-4 font-semibold">
-                  Category Name
+                  Core Category
+                </th>
+                <th scope="col" className="py-3.5 px-4 font-semibold">
+                  Metal Type
                 </th>
                 <th scope="col" className="py-3.5 px-4 font-semibold">
                   Description
                 </th>
                 <th scope="col" className="py-3.5 px-4 font-semibold text-center">
-                  Assigned Products
+                  Dimensions
                 </th>
                 <th scope="col" className="py-3.5 px-4 font-semibold">
                   Created Date
@@ -147,7 +209,7 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
             <tbody className="divide-y divide-slate-100">
               {filteredCategories.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     <Layers className="mx-auto h-8 w-8 text-slate-400 mb-2" />
                     <p className="text-base font-semibold text-slate-700">
                       No categories found
@@ -155,7 +217,7 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
                     <p className="text-xs text-slate-500 mt-1">
                       {searchQuery
                         ? "Try adjusting your search query."
-                        : "Create your first product category to organize your catalog."}
+                        : "Create core categories like Single Core, Double Core, 3-Core, 4-Core."}
                     </p>
                     {!searchQuery && (
                       <div className="mt-4">
@@ -168,7 +230,7 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
                           }}
                         >
                           <Plus className="mr-2 h-4 w-4" />
-                          Add Category
+                          Add Core Category
                         </Button>
                       </div>
                     )}
@@ -178,6 +240,10 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
                 filteredCategories.map((cat) => {
                   const productCount = cat.product_count || 0;
                   const hasProducts = productCount > 0;
+                  const wt = cat.wire_type_id
+                    ? wireTypes.find((w) => w.id === cat.wire_type_id)
+                    : cat.wire_type;
+                  const metalName = wt?.name || "General";
 
                   return (
                     <tr
@@ -191,11 +257,24 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
                         </div>
                       </td>
 
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded border ${
+                            metalName.toLowerCase().includes("copper")
+                              ? "bg-amber-50 text-amber-900 border-amber-300"
+                              : "bg-slate-100 text-slate-700 border-slate-300"
+                          }`}
+                        >
+                          <Zap className="h-3 w-3" />
+                          {metalName}
+                        </span>
+                      </td>
+
                       <td className="py-4 px-4 max-w-sm">
                         <p className="text-xs text-slate-500 line-clamp-2">
                           {cat.description || (
                             <span className="italic text-slate-400">
-                              No description provided
+                              Standard conductor configuration
                             </span>
                           )}
                         </p>
@@ -208,7 +287,7 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
                         >
                           <Package className="h-3 w-3" />
                           <span>
-                            {productCount} product{productCount === 1 ? "" : "s"}
+                            {productCount} specification{productCount === 1 ? "" : "s"}
                           </span>
                         </Badge>
                       </td>
@@ -234,11 +313,7 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
                             size="sm"
                             onClick={() => setDeletingCategory(cat)}
                             className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-slate-300 cursor-pointer"
-                            title={
-                              hasProducts
-                                ? "View deletion constraints (contains active products)"
-                                : "Delete category"
-                            }
+                            title="Delete category"
                           >
                             <Trash2 className="h-3.5 w-3.5 mr-1" />
                             Delete
@@ -259,13 +334,15 @@ export function CategoryTable({ initialCategories }: CategoryTableProps) {
             <strong className="text-slate-900">{categories.length}</strong>
           </span>
           <span className="hidden sm:inline">
-            Used across public storefront and admin catalog
+            Classified under Copper &amp; Aluminum Wire Types
           </span>
         </div>
       </div>
 
       <CategoryFormModal
         category={editingCategory}
+        wireTypes={wireTypes}
+        initialWireTypeId={selectedWireType !== "all" ? selectedWireType : undefined}
         isOpen={isCreateOpen || Boolean(editingCategory)}
         onClose={() => {
           setIsCreateOpen(false);

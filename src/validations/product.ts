@@ -6,24 +6,36 @@ export const productSchema = z.object({
     .trim()
     .min(2, "Product name must be at least 2 characters")
     .max(200, "Product name cannot exceed 200 characters"),
+  dimension: z
+    .string()
+    .trim()
+    .min(1, "Dimension is required (e.g. 3/29, 7/29, 7/36)")
+    .max(50, "Dimension cannot exceed 50 characters")
+    .optional()
+    .or(z.literal("")),
   description: z
     .string()
     .max(2000, "Description cannot exceed 2000 characters")
-    .optional(),
-  quantity: z
-    .number({ message: "Quantity must be a valid number" })
-    .int("Quantity must be a whole number")
-    .min(0, "Quantity cannot be negative"),
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  image_url: z
+    .string()
+    .optional()
+    .nullable()
+    .or(z.literal("")),
   price: z
     .number({ message: "Price must be a valid number" })
     .min(0, "Price cannot be negative"),
-  discount: z
-    .number({ message: "Discount must be a valid number" })
-    .min(0, "Discount cannot be less than 0%")
-    .max(100, "Discount cannot exceed 100%"),
   category_id: z
     .string()
     .uuid("Please select a valid category"),
+  quantity: z
+    .number()
+    .optional(),
+  discount: z
+    .number()
+    .optional(),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;

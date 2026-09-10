@@ -106,7 +106,7 @@ export async function PUT(
       );
     }
 
-    const { name, description } = validation.data;
+    const { name, description, wire_type_id } = validation.data;
     const trimmedName = name.trim();
 
     const { data: existingCategory, error: findError } = await supabase!
@@ -123,12 +123,17 @@ export async function PUT(
       return sendNotFound(`Category with ID '${id}' was not found.`);
     }
 
-    const { data: duplicateCategory, error: checkError } = await supabase!
+    let duplicateQuery = supabase!
       .from("categories")
       .select("id, name")
       .ilike("name", trimmedName)
-      .neq("id", id)
-      .maybeSingle();
+      .neq("id", id);
+
+    if (wire_type_id) {
+      duplicateQuery = duplicateQuery.eq("wire_type_id", wire_type_id);
+    }
+
+    const { data: duplicateCategory, error: checkError } = await duplicateQuery.maybeSingle();
 
     if (checkError) {
       return sendServerError(checkError, "Failed to verify category name uniqueness.");
@@ -136,19 +141,39 @@ export async function PUT(
 
     if (duplicateCategory) {
       return sendConflict(
-        `A category with the name "${duplicateCategory.name}" already exists. Category names must be unique.`
+        `A category with the name "${duplicateCategory.name}" already exists in this wire metal.`
       );
     }
 
-    const { data: updatedCategory, error: updateError } = await supabase!
+    const updatePayload: Record<string, any> = {
+      name: trimmedName,
+      description: description?.trim() || null,
+    };
+    if (wire_type_id !== undefined) {
+      updatePayload.wire_type_id = wire_type_id || null;
+    }
+
+    const updateRes = await supabase!
       .from("categories")
-      .update({
-        name: trimmedName,
-        description: description?.trim() || null,
-      })
+      .update(updatePayload)
       .eq("id", id)
-      .select("id, name, description, created_at, updated_at")
+      .select("id, name, description, wire_type_id, created_at, updated_at")
       .single();
+
+    let updatedCategory: any = updateRes.data;
+    let updateError = updateRes.error;
+
+    if (updateError && (updateError.message?.includes("wire_type_id") || updateError.code === "42703")) {
+      delete updatePayload.wire_type_id;
+      const retry = await supabase!
+        .from("categories")
+        .update(updatePayload)
+        .eq("id", id)
+        .select("id, name, description, created_at, updated_at")
+        .single();
+      updatedCategory = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       if (updateError.code === "23505") {

@@ -16,7 +16,7 @@ export function GlobalQueryLoader() {
     if (isLoading) {
       timer = setTimeout(() => setVisible(true), 50);
     } else {
-      setVisible(false);
+      timer = setTimeout(() => setVisible(false), 0);
     }
     return () => clearTimeout(timer);
   }, [isLoading]);
